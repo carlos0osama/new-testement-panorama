@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بانوراما العهد الجديد</title>
+    <!-- Chosen Palette: Desert Harmony -->
+    <!-- Application Structure Plan: A tab-based single-page application. A header with navigation switches between different content 'views' (sections). This is superior to a long scroll for this type of dense, thematic content, allowing users to focus on one topic at a time (e.g., Prophecies, Timeline). The key interactive elements are the tab navigation itself, interactive cards for the Gospels and Old Testament figures/symbols, and a dynamic timeline chart for key historical events. This structure organizes the report's content into logical, digestible user flows, prioritizing ease of access and focused learning over mirroring the original document's linear structure. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Main concepts of the report. -> Goal: Inform/Organize -> Viz/Presentation: Tabbed sections for each major theme (Christ in OT, Writing of NT, etc.). -> Interaction: Clicking tabs shows/hides content sections. -> Justification: Breaks down complex information into manageable parts, improving user focus and navigation. -> Method: Vanilla JS.
+        - Report Info: Lists of symbols, personalities. -> Goal: Organize/Inform -> Viz/Presentation: Interactive cards. -> Interaction: Click/hover on cards to see details. -> Justification: Modern, clean way to present list items instead of simple bullet points. -> Method: HTML/Tailwind/JS.
+        - Report Info: Table of OT prophecies and NT fulfillment. -> Goal: Compare/Inform -> Viz/Presentation: A structured, responsive HTML table. -> Interaction: Clear visual mapping between prophecy and fulfillment. -> Justification: Direct comparison is the most effective way to present this two-column data. -> Method: HTML/Tailwind.
+        - Report Info: Timeline of key Christian events. -> Goal: Show Change/Inform -> Viz/Presentation: Interactive Bubble Chart. -> Interaction: Hover over data points (bubbles) to see event details in tooltips. -> Justification: More engaging and visually interesting than a static list or table, helps visualize the historical span. -> Library: Chart.js (Canvas).
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #FDFBF5; /* Warm Neutral Background */
+        }
+        .nav-link {
+            transition: all 0.3s;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-link.active {
+            color: #C0A062; /* Muted Gold Accent */
+            border-bottom-color: #C0A062;
+        }
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+        .card {
+            background-color: #FFFFFF;
+            border: 1px solid #EAE0D5;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 50vh;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 500px;
+            }
+        }
+        /* Custom styles for the timeline */
+        .timeline-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 2rem; /* Add some spacing between items */
+        }
+
+        .timeline-item.left .content-card {
+            text-align: right;
+        }
+
+        .timeline-item.right .content-card {
+            text-align: left;
+        }
+
+        .timeline-dot {
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #C0A062;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            width: 2rem; /* w-8 */
+            height: 2rem; /* h-8 */
+            border-radius: 9999px; /* rounded-full */
+        }
+
+        .timeline-content {
+            width: 40%; /* Adjust width to make space for the line and dot */
+            padding: 1.5rem 1.5rem; /* px-6 py-4 */
+            background-color: #FFFFFF;
+            border-radius: 0.5rem; /* rounded-lg */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border: 1px solid #EAE0D5;
+        }
+
+        .timeline-line {
+            position: absolute;
+            right: 50%;
+            transform: translateX(50%);
+            width: 2px;
+            background-color: rgba(128, 128, 128, 0.2); /* border-gray-700 with opacity */
+            height: 100%;
+        }
+        /* Responsive adjustments for timeline */
+        @media (max-width: 767px) {
+            .timeline-item {
+                flex-direction: column;
+                align-items: center;
+            }
+            .timeline-item.left .timeline-content,
+            .timeline-item.right .timeline-content {
+                width: 90%; /* Adjust width for mobile */
+                text-align: center;
+            }
+            .timeline-line {
+                right: 50%; /* Keep line centered */
+            }
+            .timeline-dot {
+                margin-bottom: 1rem; /* Space between dot and content on mobile */
+            }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="container mx-auto px-4 py-8">
+
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-[#4A403A]">بانوراما العهد الجديد</h1>
+            <p class="text-lg text-gray-600 mt-2">رحلة تفاعلية لاستكشاف محاور وأحداث العهد الجديد</p>
+        </header>
+
+        <nav class="flex justify-center border-b border-gray-200 mb-8 flex-wrap">
+            <a href="#" class="nav-link active py-4 px-3 md:px-6 text-base md:text-lg font-medium text-gray-600" data-target="home">مقدمة</a>
+            <a href="#" class="nav-link py-4 px-3 md:px-6 text-base md:text-lg font-medium text-gray-600" data-target="christ-ot">المسيح في العهد القديم</a>
+            <a href="#" class="nav-link py-4 px-3 md:px-6 text-base md:text-lg font-medium text-gray-600" data-target="writing-nt">تدوين العهد الجديد</a>
+            <a href="#" class="nav-link py-4 px-3 md:px-6 text-base md:text-lg font-medium text-gray-600" data-target="life-christ">حياة المسيح</a>
+            <a href="#" class="nav-link py-4 px-3 md:px-6 text-base md:text-lg font-medium text-gray-600" data-target="key-events">أحداث رئيسية</a>
+        </nav>
+
+        <main>
+            <!-- Section: Home -->
+            <section id="home" class="content-section active animate-fade-in">
+                <div class="bg-white p-8 rounded-lg shadow-md border border-gray-200">
+                    <h2 class="text-3xl font-bold mb-4 text-[#4A403A]">مرحباً بك في بانوراما العهد الجديد</h2>
+                    <p class="text-lg leading-relaxed text-gray-700">
+                    </p>
+                </div>
+            </section>
+
+            <!-- Section: Christ in OT -->
+            <section id="christ-ot" class="content-section">
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold text-[#4A403A]">المسيح في العهد القديم</h2>
+                    <p class="text-lg text-gray-600 mt-2">أشار العهد القديم لشخص السيد المسيح من خلال الرموز، الشخصيات، والنبوات العديدة التي تحققت فيه.</p>
+                </div>
+                
+                <div class="grid md:grid-cols-2 gap-8 mb-12">
+                    <div class="card p-6 rounded-lg">
+                        <h3 class="text-2xl font-bold mb-3 text-[#C0A062]">رموز أشارت إليه</h3>
+                        <ul class="list-disc list-inside space-y-2 text-gray-700">
+                            <li>شجرة الحياة (تك 2: 9)</li>
+                            <li>الذبائح المختلفة (ذبيحة هابيل، خروف الفصح)</li>
+                            <li>ذبائح سفر اللاويين الخمس (الخطية، الإثم، السلامة، المحرقة، القربان)</li>
+                            <li>الحية النحاسية (عد 21: 9)</li>
+                        </ul>
+                    </div>
+                    <div class="card p-6 rounded-lg">
+                        <h3 class="text-2xl font-bold mb-3 text-[#C0A062]">شخصيات أشارت إليه</h3>
+                        <ul class="list-disc list-inside space-y-2 text-gray-700">
+                            <li>آدم: الأب الأول للخليقة القديمة</li>
+                            <li>هابيل: الذبيح بلا ذنب</li>
+                            <li>إسحق: الذي عاد حياً</li>
+                            <li>يوسف: مخلص العالم الذي فدى إخوته</li>
+                            <li>موسى: محرر شعبه من العبودية</li>
+                            <li>هرون وملكي صادق: رموز لكهنوته</li>
+                            <li>يونان: مثال مكوثه في القبر</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card p-6 rounded-lg">
+                    <h3 class="text-2xl font-bold mb-4 text-center text-[#C0A062]">نبوات تحققت في المسيح</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-center">
+                            <thead class="bg-[#F8F4EE]">
+                                <tr>
+                                    <th class="p-3 font-bold">موضوع النبوة</th>
+                                    <th class="p-3 font-bold">نبوة العهد القديم</th>
+                                    <th class="p-3 font-bold">التحقيق في العهد الجديد</th>
+                                </tr>
+                            </thead>
+                            <tbody id="prophecies-table">
+                                <!-- JS will populate this -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section: Writing the NT -->
+            <section id="writing-nt" class="content-section">
+                   <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold text-[#4A403A]">كيف كُتب العهد الجديد؟</h2>
+                    <p class="text-lg text-gray-600 mt-2">بدأت البشارة شفهية، ثم دُونت الأسفار بوحي من الروح القدس لتلبية حاجة الكنائس الناشئة.</p>
+                </div>
+                <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="card p-6 rounded-lg text-center">
+                        <h3 class="text-xl font-bold mb-2 text-[#C0A062]">إنجيل متى</h3>
+                        <p>كُتب لليهود ليُظهر أن يسوع هو المسيا المنتظر الذي تحققت فيه النبوات.</p>
+                    </div>
+                    <div class="card p-6 rounded-lg text-center">
+                        <h3 class="text-xl font-bold mb-2 text-[#C0A062]">إنجيل مرقس</h3>
+                        <p>كُتب للرومان ليُظهر يسوع كالخادم الإلهي القوي للبشرية.</p>
+                    </div>
+                    <div class="card p-6 rounded-lg text-center">
+                        <h3 class="text-xl font-bold mb-2 text-[#C0A062]">إنجيل لوقا</h3>
+                        <p>كُتب لليونان ليُوضح أن يسوع هو ابن الإنسان مخلص البشرية.</p>
+                    </div>
+                    <div class="card p-6 rounded-lg text-center">
+                        <h3 class="text-xl font-bold mb-2 text-[#C0A062]">إنجيل يوحنا</h3>
+                        <p>كُتب للعالم كله للرد على الهرطقات وتأكيد ألوهية المسيح.</p>
+                    </div>
+                    <div class="card p-6 rounded-lg text-center md:col-span-2">
+                        <h3 class="text-xl font-bold mb-2 text-[#C0A062]">سفر أعمال الرسل</h3>
+                        <p>يكمل إنجيل لوقا، ويشرح كيف انتشرت الكرازة في العالم بقوة الروح القدس.</p>
+                    </div>
+                    <div class="card p-6 rounded-lg text-center md:col-span-2">
+                        <h3 class="text-xl font-bold mb-2 text-[#C0A062]">الرسائل وسفر الرؤيا</h3>
+                        <p>رسائل تعليمية ورعوية للكنائس، ورؤيا يوحنا لتقديم التشجيع والنصرة للكنيسة المتألمة.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section: Life of Christ -->
+            <section id="life-christ" class="content-section">
+                   <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold text-[#4A403A]">الخط الزمني لحياة المسيح</h2>
+                    <p class="text-lg text-gray-600 mt-2">تتبع المراحل الرئيسية في حياة ربنا يسوع المسيح على الأرض كما وردت في البشائر الأربعة.</p>
+                </div>
+                <div class="relative wrap overflow-hidden p-10 h-full">
+                    <!-- Vertical line for timeline -->
+                    <div class="timeline-line"></div>
+                    <!-- Timeline items will be populated here -->
+                    <div id="life-timeline" class="space-y-8"></div>
+                </div>
+            </section>
+
+            <!-- Section: Key Events -->
+            <section id="key-events" class="content-section">
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold text-[#4A403A]">أحداث رئيسية في تاريخ الكنيسة</h2>
+                    <p class="text-lg text-gray-600 mt-2">منذ ميلاد المسيح وحتى العصر الحديث، مرّت الكنيسة بأحداث مفصلية شكلت تاريخها. تحرك فوق النقاط لرؤية تفاصيل كل حدث.</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                    <div class="chart-container">
+                        <canvas id="eventsChart"></canvas>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const navLinks = document.querySelectorAll('.nav-link');
+            const contentSections = document.querySelectorAll('.content-section');
+
+            // Function to handle tab switching
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = link.getAttribute('data-target');
+
+                    // Remove 'active' class from all nav links and content sections
+                    navLinks.forEach(navLink => navLink.classList.remove('active'));
+                    contentSections.forEach(section => section.classList.remove('active'));
+
+                    // Add 'active' class to the clicked nav link and its corresponding content section
+                    link.classList.add('active');
+                    document.getElementById(targetId).classList.add('active');
+                });
+            });
+
+            // --- Data for Prophecies Table ---
+            const prophecies = [
+                { topic: 'نسبه الجسدي', ot: 'أش 11: 1', nt: 'مت 1: 1-7' },
+                { topic: 'مكان ميلاده', ot: 'مي 5: 2', nt: 'مت 2: 1-6' },
+                { topic: 'يولد من عذراء', ot: 'أش 7: 14', nt: 'مت 1: 18-23' },
+                { topic: 'دخوله أورشليم', ot: 'زك 9: 9', nt: 'مت 21: 1-11' },
+                { topic: 'يباع بالفضة', ot: 'زك 11: 12', nt: 'مت 26: 14-15' },
+                { topic: 'يخونه صديق', ot: 'مز 41: 9', nt: 'يو 13: 18' },
+                { topic: 'صمته أمام متهميه', ot: 'أش 53: 7', nt: 'مت 27: 12-14' },
+                { topic: 'صلبه مع لصوص', ot: 'أش 53: 12', nt: 'لو 23: 32' },
+                { topic: 'اقتسام الثياب', ot: 'مز 22: 18', nt: 'يو 19: 23-24' },
+                { topic: 'دفنه في قبر غني', ot: 'أش 53: 9', nt: 'مت 27: 57-60' },
+                { topic: 'قيامته من الأموات', ot: 'مز 16: 10', nt: 'مت 28: 6' },
+                { topic: 'صعوده إلى السموات', ot: 'مز 68: 18', nt: 'أع 1: 9-11' }
+            ];
+
+            const propheciesTable = document.getElementById('prophecies-table');
+            prophecies.forEach(p => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-200 hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="p-3">${p.topic}</td>
+                    <td class="p-3 font-mono">${p.ot}</td>
+                    <td class="p-3 font-mono">${p.nt}</td>
+                `;
+                propheciesTable.appendChild(row);
+            });
+            
+            // --- Data for Life of Christ Timeline ---
+            const lifeTimelineData = [
+                { title: 'الميلاد والطفولة', details: 'أحداث الميلاد والطفولة (مت 1-2، لو 1-2)', year: -4, side: 'right' },
+                { title: 'بدء الخدمة', details: 'خدمة يوحنا المعمدان، العماد والتجربة (مت 3-4، مر 1، لو 3-4)', year: 30, side: 'left' },
+                { title: 'خدمة الجليل', details: 'مركزها كفرناحوم، وشملت تعاليم ومعجزات وأمثال واختيار التلاميذ.', year: 31, side: 'right' },
+                { title: 'التجلي', details: 'لحظة حاسمة أظهر فيها مجده (مت 17، مر 9، لو 9)', year: 32, side: 'left' },
+                { title: 'الرحلة إلى أورشليم', details: 'الرحلة الأخيرة نحو الصليب، مليئة بالتعاليم الهامة.', year: 33, side: 'right' },
+                { title: 'أسبوع الآلام', details: 'دخول أورشليم، المحاكمة والصلب والدفن (مت 21-27)', year: 33, side: 'left' },
+                { title: 'القيامة والصعود', details: 'القيامة فجر الأحد، ظهورات لمدة 40 يوماً ثم الصعود. (مت 28، مر 16، لو 24)', year: 33, side: 'right' }
+            ];
+
+            const lifeTimelineContainer = document.getElementById('life-timeline');
+            lifeTimelineData.forEach((item, index) => {
+                const isRight = item.side === 'right';
+                const timelineItem = document.createElement('div');
+                timelineItem.className = `timeline-item ${isRight ? 'flex-row-reverse' : ''}`;
+                timelineItem.innerHTML = `
+                    <div class="w-5/12 ${isRight ? 'ml-auto' : 'mr-auto'}"></div>
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content w-5/12">
+                        <h3 class="mb-3 font-bold text-gray-800 text-xl">${item.title}</h3>
+                        <p class="text-sm leading-snug tracking-wide text-gray-600">${item.details}</p>
+                    </div>
+                `;
+                lifeTimelineContainer.appendChild(timelineItem);
+            });
+
+
+            // --- Data for Key Events Chart ---
+            const eventsData = {
+                labels: [4, 12, 30, 33, 36, 50, 60, 67, 68, 70, 284, 313, 325, 381, 431, 451, 641, 1500, 1900],
+                datasets: [{
+                    label: 'أحداث رئيسية',
+                    data: [
+                        {x: -4, y: 5, r: 8, event: 'ميلاد ربنا يسوع المسيح'},
+                        {x: 12, y: 10, r: 5, event: 'دخول ربنا يسوع الهيكل'},
+                        {x: 30, y: 15, r: 8, event: 'عماد ربنا يسوع وبدء الخدمة'},
+                        {x: 33, y: 20, r: 10, event: 'الصلب والقيامة والصعود وحلول الروح القدس'},
+                        {x: 36, y: 25, r: 6, event: 'إيمان شاول الطرسوسي'},
+                        {x: 50, y: 30, r: 8, event: 'مجمع أورشليم (أع 15)'},
+                        {x: 60, y: 35, r: 7, event: 'دخول المسيحية مصر (القديس مرقس)'},
+                        {x: 67, y: 40, r: 7, event: 'استشهاد بولس وبطرس'},
+                        {x: 68, y: 45, r: 7, event: 'استشهاد مارمرقس'},
+                        {x: 70, y: 50, r: 9, event: 'خراب أورشليم'},
+                        {x: 284, y: 55, r: 10, event: 'بداية التقويم القبطي (عصر الشهداء)'},
+                        {x: 313, y: 60, r: 8, event: 'منشور ميلان (قسطنطين)'},
+                        {x: 325, y: 65, r: 9, event: 'مجمع نيقية'},
+                        {x: 381, y: 70, r: 8, event: 'مجمع القسطنطينية'},
+                        {x: 431, y: 75, r: 8, event: 'مجمع أفسس'},
+                        {x: 451, y: 80, r: 9, event: 'مجمع خلقدونية (انقسام الكنيسة)'},
+                        {x: 641, y: 85, r: 8, event: 'دخول الإسلام مصر'},
+                        {x: 1517, y: 90, r: 9, event: 'ظهور البروتستانتية'},
+                        {x: 1950, y: 95, r: 8, event: 'الحركة المسكونية (القرن 20)'},
+                    ],
+                    backgroundColor: 'rgba(192, 160, 98, 0.7)',
+                    borderColor: 'rgba(192, 160, 98, 1)',
+                }]
+            };
+
+            const eventsChartCtx = document.getElementById('eventsChart').getContext('2d');
+            new Chart(eventsChartCtx, {
+                type: 'bubble',
+                data: eventsData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: 'السنة الميلادية'
+                            }
+                        },
+                        y: {
+                            display: false
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            bodyFont: {
+                                family: 'Tajawal'
+                            },
+                            titleFont: {
+                                family: 'Tajawal'
+                            },
+                            callbacks: {
+                                label: function(context) {
+                                    const item = context.dataset.data[context.dataIndex];
+                                    // Fixed string interpolation using template literals
+                                    return `${item.event} (سنة ${item.x > 0 ? item.x : -item.x + ' ق.م.'})`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
